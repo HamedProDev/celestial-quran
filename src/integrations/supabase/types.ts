@@ -14,16 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      bookmarks: {
+        Row: {
+          created_at: string | null
+          id: string
+          surah_name: string | null
+          surah_number: number
+          user_id: string
+          verse_number: number
+          verse_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          surah_name?: string | null
+          surah_number: number
+          user_id: string
+          verse_number: number
+          verse_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          surah_name?: string | null
+          surah_number?: number
+          user_id?: string
+          verse_number?: number
+          verse_text?: string | null
+        }
+        Relationships: []
+      }
+      notes: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          surah_number: number
+          updated_at: string | null
+          user_id: string
+          verse_number: number
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          surah_number: number
+          updated_at?: string | null
+          user_id: string
+          verse_number: number
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          surah_number?: number
+          updated_at?: string | null
+          user_id?: string
+          verse_number?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          ban_reason: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          is_banned: boolean | null
+          is_verified: boolean | null
+          updated_at: string | null
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          ban_reason?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          is_banned?: boolean | null
+          is_verified?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          ban_reason?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          is_banned?: boolean | null
+          is_verified?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      reading_progress: {
+        Row: {
+          completion_percentage: number | null
+          current_surah: number | null
+          current_verse: number | null
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completion_percentage?: number | null
+          current_surah?: number | null
+          current_verse?: number | null
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completion_percentage?: number | null
+          current_surah?: number | null
+          current_verse?: number | null
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +323,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
