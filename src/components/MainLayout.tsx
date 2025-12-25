@@ -1,19 +1,13 @@
 import { useState } from "react";
-import LoadingScreen from "@/components/LoadingScreen";
+import { Outlet } from "react-router-dom";
 import CosmicNavigation from "@/components/CosmicNavigation";
 import DivineHeader from "@/components/DivineHeader";
 import FloatingParticles from "@/components/FloatingParticles";
 import CalligraphyOverlay from "@/components/CalligraphyOverlay";
 import AudioVisualizer from "@/components/AudioVisualizer";
-import QuranReader from "./QuranReader";
 
-const Index = () => {
-  const [isLoading, setIsLoading] = useState(true);
+const MainLayout = () => {
   const [isAudioActive, setIsAudioActive] = useState(false);
-
-  if (isLoading) {
-    return <LoadingScreen onComplete={() => setIsLoading(false)} />;
-  }
 
   return (
     <div className="min-h-screen">
@@ -26,7 +20,7 @@ const Index = () => {
       />
       
       <main className="lg:ml-[90px] p-4 md:p-8 pb-40 min-h-[calc(100vh-80px)]">
-        <QuranReader />
+        <Outlet />
       </main>
 
       <AudioVisualizer isActive={isAudioActive} />
@@ -34,4 +28,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default MainLayout;
