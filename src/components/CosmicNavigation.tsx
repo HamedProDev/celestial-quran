@@ -11,34 +11,51 @@ import {
   ChevronLeft, 
   ChevronRight,
   Menu,
-  BookOpenText
+  BookOpenText,
+  Shield,
+  LogOut,
+  LogIn
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   id: string;
   icon: React.ReactNode;
   label: string;
   path: string;
+  adminOnly?: boolean;
 }
-
-const navItems: NavItem[] = [
-  { id: "reader", icon: <BookOpen className="w-6 h-6" />, label: "Cosmic Reader", path: "/" },
-  { id: "explore", icon: <Compass className="w-6 h-6" />, label: "Explore Quran", path: "/explore" },
-  { id: "search", icon: <Search className="w-6 h-6" />, label: "Divine Search", path: "/search" },
-  { id: "bookmarks", icon: <Bookmark className="w-6 h-6" />, label: "Sacred Bookmarks", path: "/bookmarks" },
-  { id: "audio", icon: <Music className="w-6 h-6" />, label: "Celestial Audio", path: "/audio" },
-  { id: "tafsir", icon: <GraduationCap className="w-6 h-6" />, label: "Wisdom Tafsir", path: "/tafsir" },
-  { id: "settings", icon: <Settings className="w-6 h-6" />, label: "Divine Settings", path: "/settings" },
-];
 
 const CosmicNavigation = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAdmin, signOut } = useAuth();
+
+  const navItems: NavItem[] = [
+    { id: "reader", icon: <BookOpen className="w-6 h-6" />, label: "Cosmic Reader", path: "/" },
+    { id: "explore", icon: <Compass className="w-6 h-6" />, label: "Explore Quran", path: "/explore" },
+    { id: "search", icon: <Search className="w-6 h-6" />, label: "Divine Search", path: "/search" },
+    { id: "bookmarks", icon: <Bookmark className="w-6 h-6" />, label: "Sacred Bookmarks", path: "/bookmarks" },
+    { id: "audio", icon: <Music className="w-6 h-6" />, label: "Celestial Audio", path: "/audio" },
+    { id: "tafsir", icon: <GraduationCap className="w-6 h-6" />, label: "Wisdom Tafsir", path: "/tafsir" },
+    { id: "settings", icon: <Settings className="w-6 h-6" />, label: "Divine Settings", path: "/settings" },
+    ...(isAdmin ? [{ id: "admin", icon: <Shield className="w-6 h-6" />, label: "Admin Dashboard", path: "/admin", adminOnly: true }] : []),
+  ];
 
   const handleNavClick = (path: string) => {
     navigate(path);
+    setMobileOpen(false);
+  };
+
+  const handleAuthClick = async () => {
+    if (user) {
+      await signOut();
+      navigate("/");
+    } else {
+      navigate("/auth");
+    }
     setMobileOpen(false);
   };
 
@@ -82,7 +99,7 @@ const CosmicNavigation = () => {
             <div
               key={item.id}
               onClick={() => handleNavClick(item.path)}
-              className={`nav-cosmic group ${isActive(item.path) ? "active" : ""}`}
+              className={`nav-cosmic group ${isActive(item.path) ? "active" : ""} ${item.adminOnly ? "border border-primary/30" : ""}`}
             >
               <span className={isActive(item.path) ? "text-primary-foreground" : "text-secondary-foreground"}>
                 {item.icon}
@@ -92,6 +109,19 @@ const CosmicNavigation = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Auth Button */}
+        <div
+          onClick={handleAuthClick}
+          className="nav-cosmic group mb-4"
+        >
+          <span className="text-secondary-foreground">
+            {user ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />}
+          </span>
+          <div className="absolute left-[70px] bg-card/95 px-4 py-2 rounded-xl whitespace-nowrap opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none border border-primary/20 glow-gold text-secondary-foreground font-ui text-sm">
+            {user ? "Sign Out" : "Sign In"}
+          </div>
         </div>
 
         {/* Toggle Button */}
@@ -145,7 +175,7 @@ const CosmicNavigation = () => {
         </div>
 
         {/* Nav Items */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 flex-1">
           {navItems.map((item) => (
             <div
               key={item.id}
@@ -157,6 +187,16 @@ const CosmicNavigation = () => {
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Auth Button */}
+        <div
+          onClick={handleAuthClick}
+          className="nav-cosmic mb-4"
+        >
+          <span className="text-secondary-foreground">
+            {user ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />}
+          </span>
         </div>
       </nav>
     </>
