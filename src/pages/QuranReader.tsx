@@ -1,71 +1,75 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import SurahHeader from "@/components/SurahHeader";
 import VerseCard from "@/components/VerseCard";
 import SurahNavigator from "@/components/SurahNavigator";
 import ProgressRing from "@/components/ProgressRing";
-
-// Sample data for Al-Fatihah
-const alFatihah = {
-  number: 1,
-  arabicName: "سُورَةُ الْفَاتِحَة",
-  englishName: "Al-Fatihah",
-  englishNameTranslation: "The Opening",
-  versesCount: 7,
-  revelationType: "Meccan",
-  verses: [
-    {
-      number: 1,
-      arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-      translation: "In the name of Allah, the Entirely Merciful, the Especially Merciful.",
-    },
-    {
-      number: 2,
-      arabic: "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
-      translation: "[All] praise is [due] to Allah, Lord of the worlds.",
-    },
-    {
-      number: 3,
-      arabic: "الرَّحْمَٰنِ الرَّحِيمِ",
-      translation: "The Entirely Merciful, the Especially Merciful.",
-    },
-    {
-      number: 4,
-      arabic: "مَالِكِ يَوْمِ الدِّينِ",
-      translation: "Sovereign of the Day of Recompense.",
-    },
-    {
-      number: 5,
-      arabic: "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ",
-      translation: "It is You we worship and You we ask for help.",
-    },
-    {
-      number: 6,
-      arabic: "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ",
-      translation: "Guide us to the straight path.",
-    },
-    {
-      number: 7,
-      arabic: "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ",
-      translation: "The path of those upon whom You have bestowed favor, not of those who have earned [Your] anger or of those who are astray.",
-    },
-  ],
-};
+import { fetchSurah, fetchVerseAudio, type Surah, type Verse } from "@/services/quranApi";
+import { useAuth } from "@/hooks/useAuth";
+import { updateReadingProgress } from "@/services/userService";
 
 const QuranReader = () => {
+  const { surahId } = useParams();
+  const { user } = useAuth();
+  const [currentSurahId, setCurrentSurahId] = useState(parseInt(surahId || "1"));
+  const [surah, setSurah] = useState<Surah | null>(null);
+  const [verses, setVerses] = useState<Verse[]>([]);
   const [currentVerse, setCurrentVerse] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [playingVerseNum, setPlayingVerseNum] = useState<number | null>(null);
 
+  // Fetch surah data
   useEffect(() => {
-    // Calculate progress based on scroll
+    const loadSurah = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchSurah(currentSurahId);
+        setSurah(data.surah);
+        setVerses(data.verses);
+        setCurrentVerse(1);
+      } catch (err) {
+        console.error("Error loading surah:", err);
+        setError("Failed to load surah. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSurah();
+  }, [currentSurahId]);
+
+  // Update surah from URL params
+  useEffect(() => {
+    if (surahId) {
+      const id = parseInt(surahId);
+      if (id >= 1 && id <= 114) {
+        setCurrentSurahId(id);
+      }
+    }
+  }, [surahId]);
+
+  // Calculate progress based on scroll
+  useEffect(() => {
     const handleScroll = () => {
       const scrolled = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
-      setProgress(Math.min(100, Math.max(0, scrolled)));
+      const newProgress = Math.min(100, Math.max(0, scrolled));
+      setProgress(newProgress);
+
+      // Update reading progress for logged-in users
+      if (user && surah) {
+        const versesPercentage = (currentVerse / verses.length) * 100;
+        updateReadingProgress(surah.id, currentVerse, versesPercentage).catch(console.error);
+      }
     };
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [user, surah, currentVerse, verses.length]);
 
   const handleVerseClick = (verse: number) => {
     setCurrentVerse(verse);
@@ -73,29 +77,103 @@ const QuranReader = () => {
     element?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const handlePlayAudio = () => {
-    setIsPlaying(!isPlaying);
+  const handlePlayAudio = async (verseNumber?: number) => {
+    const verseToPlay = verseNumber || currentVerse;
+    
+    // Stop current audio if playing
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    if (playingVerseNum === verseToPlay && isPlaying) {
+      setIsPlaying(false);
+      setPlayingVerseNum(null);
+      return;
+    }
+
+    try {
+      const audioUrl = await fetchVerseAudio(currentSurahId, verseToPlay);
+      if (audioUrl) {
+        const newAudio = new Audio(audioUrl);
+        newAudio.play();
+        setAudio(newAudio);
+        setIsPlaying(true);
+        setPlayingVerseNum(verseToPlay);
+
+        newAudio.onended = () => {
+          setIsPlaying(false);
+          setPlayingVerseNum(null);
+          // Auto-play next verse
+          if (verseToPlay < verses.length) {
+            handlePlayAudio(verseToPlay + 1);
+          }
+        };
+      }
+    } catch (err) {
+      console.error("Error playing audio:", err);
+    }
   };
+
+  const handleTogglePlay = () => {
+    if (isPlaying && audio) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      handlePlayAudio(currentVerse);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="animate-celestial-fade flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-gold flex items-center justify-center animate-pulse glow-gold">
+            <div className="w-8 h-8 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-secondary-foreground">Loading sacred verses...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !surah) {
+    return (
+      <div className="animate-celestial-fade flex items-center justify-center min-h-[60vh]">
+        <div className="text-center cosmic-card max-w-md">
+          <p className="text-destructive mb-4">{error || "Failed to load surah"}</p>
+          <button
+            onClick={() => setCurrentSurahId(1)}
+            className="btn-gold"
+          >
+            Return to Al-Fatihah
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-celestial-fade">
       <SurahHeader
-        arabicName={alFatihah.arabicName}
-        englishName={alFatihah.englishName}
-        englishNameTranslation={alFatihah.englishNameTranslation}
-        versesCount={alFatihah.versesCount}
-        revelationType={alFatihah.revelationType}
+        arabicName={surah.name_arabic}
+        englishName={surah.name_simple}
+        englishNameTranslation={surah.translated_name?.name || ""}
+        versesCount={surah.verses_count}
+        revelationType={surah.revelation_place}
       />
 
       <div className="space-y-8 max-w-4xl mx-auto">
-        {alFatihah.verses.map((verse) => (
-          <div key={verse.number} id={`verse-${verse.number}`}>
+        {verses.map((verse) => (
+          <div key={verse.id} id={`verse-${verse.verse_number}`}>
             <VerseCard
-              verseNumber={verse.number}
-              arabicText={verse.arabic}
-              translation={verse.translation}
-              surahNumber={alFatihah.number}
-              onPlayAudio={handlePlayAudio}
+              verseNumber={verse.verse_number}
+              arabicText={verse.text_uthmani}
+              translation={verse.translations?.[0]?.text?.replace(/<[^>]*>/g, '') || ""}
+              surahNumber={surah.id}
+              surahName={surah.name_simple}
+              onPlayAudio={() => handlePlayAudio(verse.verse_number)}
+              isPlaying={playingVerseNum === verse.verse_number && isPlaying}
             />
           </div>
         ))}
@@ -103,14 +181,14 @@ const QuranReader = () => {
 
       <SurahNavigator
         currentVerse={currentVerse}
-        totalVerses={alFatihah.versesCount}
+        totalVerses={surah.verses_count}
         onVerseClick={handleVerseClick}
       />
 
       <ProgressRing
         progress={progress}
         isPlaying={isPlaying}
-        onToggle={handlePlayAudio}
+        onToggle={handleTogglePlay}
       />
     </div>
   );

@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, User, Eye, EyeOff, BookOpenText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { z } from "zod";
+
+const emailSchema = z.string().email("Invalid email address");
+const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -13,9 +19,34 @@ const Auth = () => {
     confirmPassword: "",
   });
   const navigate = useNavigate();
+  const { user, signIn, signUp, loading } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/");
+    }
+  }, [user, loading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+
+    // Validate inputs
+    try {
+      emailSchema.parse(formData.email);
+      passwordSchema.parse(formData.password);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+    }
     
     if (!isLogin && formData.password !== formData.confirmPassword) {
       toast({
@@ -23,19 +54,69 @@ const Auth = () => {
         description: "Passwords do not match",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
-    // Simulate authentication
-    toast({
-      title: isLogin ? "Welcome Back!" : "Account Created",
-      description: isLogin 
-        ? "You have successfully logged in" 
-        : "Please check your email to verify your account",
-    });
-
-    navigate("/");
+    try {
+      if (isLogin) {
+        const { error } = await signIn(formData.email, formData.password);
+        if (error) {
+          let message = error.message;
+          if (message.includes("Invalid login credentials")) {
+            message = "Invalid email or password. Please try again.";
+          }
+          toast({
+            title: "Sign In Failed",
+            description: message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Welcome Back!",
+            description: "You have successfully logged in",
+          });
+          navigate("/");
+        }
+      } else {
+        const { error } = await signUp(formData.email, formData.password, formData.name);
+        if (error) {
+          let message = error.message;
+          if (message.includes("User already registered")) {
+            message = "An account with this email already exists. Please sign in instead.";
+          }
+          toast({
+            title: "Sign Up Failed",
+            description: message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Account Created!",
+            description: "You can now sign in with your credentials.",
+          });
+          setIsLogin(true);
+          setFormData({ ...formData, password: "", confirmPassword: "" });
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -105,6 +186,7 @@ const Auth = () => {
                   placeholder="Enter your password"
                   className="w-full py-3 pl-12 pr-12 rounded-xl bg-secondary/50 border border-primary/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                   required
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -130,24 +212,25 @@ const Auth = () => {
                     placeholder="Confirm your password"
                     className="w-full py-3 pl-12 pr-4 rounded-xl bg-secondary/50 border border-primary/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                     required
+                    minLength={6}
                   />
                 </div>
               </div>
             )}
 
-            {isLogin && (
-              <div className="text-right">
-                <button
-                  type="button"
-                  className="text-primary text-sm font-ui hover:underline"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
-
-            <button type="submit" className="btn-gold w-full py-4 text-lg">
-              {isLogin ? "Sign In" : "Create Account"}
+            <button 
+              type="submit" 
+              className="btn-gold w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  {isLogin ? "Signing In..." : "Creating Account..."}
+                </div>
+              ) : (
+                isLogin ? "Sign In" : "Create Account"
+              )}
             </button>
           </form>
 
@@ -156,7 +239,10 @@ const Auth = () => {
             <p className="text-secondary-foreground font-ui text-sm">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
               <button
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setFormData({ email: "", password: "", name: "", confirmPassword: "" });
+                }}
                 className="text-primary ml-2 hover:underline font-medium"
               >
                 {isLogin ? "Sign Up" : "Sign In"}

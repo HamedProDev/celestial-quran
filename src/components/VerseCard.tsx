@@ -7,9 +7,11 @@ interface VerseCardProps {
   arabicText: string;
   translation: string;
   surahNumber?: number;
+  surahName?: string;
   onBookmark?: () => void;
   onPlayAudio?: () => void;
   isBookmarked?: boolean;
+  isPlaying?: boolean;
 }
 
 const VerseCard = ({
@@ -17,9 +19,11 @@ const VerseCard = ({
   arabicText,
   translation,
   surahNumber = 1,
+  surahName,
   onBookmark,
   onPlayAudio,
   isBookmarked = false,
+  isPlaying = false,
 }: VerseCardProps) => {
   const [bookmarked, setBookmarked] = useState(isBookmarked);
 
